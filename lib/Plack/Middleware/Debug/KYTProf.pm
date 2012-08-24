@@ -1,99 +1,81 @@
 package Plack::Middleware::Debug::KYTProf;
-
-use 5.006;
 use strict;
 use warnings;
+use parent qw(Plack::Middleware::Debug::Base);
 
-=head1 NAME
-
-Plack::Middleware::Debug::KYTProf - The great new Plack::Middleware::Debug::KYTProf!
-
-=head1 VERSION
-
-Version 0.01
-
-=cut
+use Plack::Util::Accessor qw(logger hfa template);
+use Devel::KYTProf;
+use HTML::FromANSI::Tiny;
+use Text::MicroTemplate qw(encoded_string);
+use Plack::Middleware::Debug::KYTProf::Logger;
 
 our $VERSION = '0.01';
 
+sub prepare_app {
+    my ($self) = @_;
+
+    my $logger = Plack::Middleware::Debug::KYTProf::Logger->new;
+    $self->logger($logger);
+    Devel::KYTProf->logger($logger);
+
+    $self->hfa(
+        HTML::FromANSI::Tiny->new(selector_prefix => '#plDebug td '),
+    );
+
+    my $line_template = $self->build_template(<<'EOTMPL');
+<table>
+    <tbody>
+% my $i;
+% if (defined $_[0]->{lines}) {
+%   my @lines = ref $_[0]->{lines} eq 'ARRAY' ? @{$_[0]->{lines}} : split /\r?\n/, $_[0]->{lines};
+%   for my $line (@lines) {
+            <tr class="<%= ++$i % 2 ? 'plDebugEven' : 'plDebugOdd' %>">
+                <td><%= encoded_string($line) %></td>
+            </tr>
+%   }
+% }
+    </tbody>
+</table>
+<%= encoded_string($_[0]->{style_tag}) %>
+EOTMPL
+
+    $self->template($line_template);
+}
+
+sub run {
+    my ($self, $env, $panel) = @_;
+
+    return sub {
+        my ($res) = @_;
+
+        my $logs = $self->logger->logs;
+        $panel->nav_subtitle(scalar @$logs . ' Rows');
+        $panel->content(
+            $self->render(
+                $self->template, {
+                    lines => [ map { join '', $self->hfa->html($_) } @$logs ],
+                    style_tag => scalar $self->hfa->style_tag,
+                }
+            )
+        );
+    };
+}
+
+1;
+
+__END__
+
+=head1 NAME
+
+Plack::Middleware::Debug::KYTProf - debug panel for Devel::KYTProf
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
-
-Perhaps a little code snippet.
-
-    use Plack::Middleware::Debug::KYTProf;
-
-    my $foo = Plack::Middleware::Debug::KYTProf->new();
-    ...
-
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
-
-=head1 SUBROUTINES/METHODS
-
-=head2 function1
-
-=cut
-
-sub function1 {
-}
-
-=head2 function2
-
-=cut
-
-sub function2 {
-}
+ enable 'Debug::KYTProf';
 
 =head1 AUTHOR
 
 Eitarow Fukamachi, C<< <e.arrows at gmail.com> >>
-
-=head1 BUGS
-
-Please report any bugs or feature requests to C<bug-plack-middleware-debug-kytprof at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Plack-Middleware-Debug-KYTProf>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-
-
-
-=head1 SUPPORT
-
-You can find documentation for this module with the perldoc command.
-
-    perldoc Plack::Middleware::Debug::KYTProf
-
-
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Plack-Middleware-Debug-KYTProf>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Plack-Middleware-Debug-KYTProf>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Plack-Middleware-Debug-KYTProf>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Plack-Middleware-Debug-KYTProf/>
-
-=back
-
-
-=head1 ACKNOWLEDGEMENTS
-
 
 =head1 LICENSE AND COPYRIGHT
 
@@ -105,7 +87,9 @@ by the Free Software Foundation; or the Artistic License.
 
 See http://dev.perl.org/licenses/ for more information.
 
+=head1 SEE ALSO
+
+L<Plack::Middleware::Debug>, L<Devel::KYTProf>
 
 =cut
 
-1; # End of Plack::Middleware::Debug::KYTProf

@@ -14,6 +14,10 @@ WriteMakefile(
     PL_FILES            => {},
     PREREQ_PM => {
         'Test::More' => 0,
+        'Plack::Middleware::Debug' => 0,
+        'Devel::KYTProf' => 0,
+        'Text::MicroTemplate' => 0,
+        'HTML::FromANSI::Tiny' => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'Plack-Middleware-Debug-KYTProf-*' },
